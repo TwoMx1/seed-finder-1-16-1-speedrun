@@ -45,7 +45,7 @@ public class DesertTemple {
             long start = t * chunkSize;
             long end = (t == THREADS - 1) ? TOTAL_SEEDS : start + chunkSize;
 
-            executor.submit(() -> searchRange(start, end, progress));
+            executor.submit(() -> searchRange(start, end, progress, TOTAL_SEEDS));
         }
 
         executor.shutdown();
@@ -70,7 +70,7 @@ public class DesertTemple {
         return (score >= reqScore);
     }
 
-    static void searchRange(long start, long end, AtomicLong progress) {
+    static void searchRange(long start, long end, AtomicLong progress, long totalSeeds) {
         MCVersion version = MCVersion.v1_16_1;
         Dimension ow = Dimension.OVERWORLD;
         Dimension nether = Dimension.NETHER;
@@ -85,7 +85,7 @@ public class DesertTemple {
         for (long structureSeed = start; structureSeed < end; structureSeed++) {
             long done = progress.incrementAndGet();
             if (done % 1_000_000L == 0)
-                System.out.printf("===== Progress: %.1f%% =====%n", (done * 100.0) / TOTAL_SEEDS);
+                System.out.printf("===== Progress: %.1f%% =====%n", (done * 100.0) / totalSeeds);
 
             // =========================
             // TEMPLE STRUCTURE CHECK
