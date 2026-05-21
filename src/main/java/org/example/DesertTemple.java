@@ -1,0 +1,278 @@
+package org.example;
+
+import com.seedfinding.mcbiome.biome.Biome;
+import com.seedfinding.mcbiome.biome.Biomes;
+import com.seedfinding.mcbiome.source.BiomeSource;
+import com.seedfinding.mcbiome.source.OverworldBiomeSource;
+import com.seedfinding.mccore.block.Blocks;
+import com.seedfinding.mccore.rand.ChunkRand;
+import com.seedfinding.mccore.rand.seed.WorldSeed;
+import com.seedfinding.mccore.state.Dimension;
+import com.seedfinding.mccore.util.math.DistanceMetric;
+import com.seedfinding.mccore.util.pos.CPos;
+import com.seedfinding.mccore.version.MCVersion;
+import com.seedfinding.mcfeature.loot.item.Items;
+import com.seedfinding.mcfeature.misc.SpawnPoint;
+import com.seedfinding.mcfeature.structure.BastionRemnant;
+import com.seedfinding.mcfeature.structure.DesertPyramid;
+import com.seedfinding.mcfeature.structure.Fortress;
+import com.seedfinding.mcfeature.structure.Village;
+import com.seedfinding.mcfeature.structure.generator.structure.DesertPyramidGenerator;
+import com.seedfinding.mcfeature.structure.generator.structure.RuinedPortalGenerator;
+import com.seedfinding.mcfeature.structure.generator.structure.VillageGenerator;
+import com.seedfinding.mcterrain.TerrainGenerator;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
+
+public class DesertTemple {
+
+    static final long TOTAL_SEEDS = 100_000_000L;
+    static final int THREADS = Math.max(Runtime.getRuntime().availableProcessors() - 2, 1);
+
+    public static void main(String[] args) throws InterruptedException {
+        System.out.println("Using " + THREADS + " threads");
+        AtomicLong progress = new AtomicLong(0);
+        ExecutorService executor = Executors.newFixedThreadPool(THREADS);
+        long chunkSize = TOTAL_SEEDS / THREADS;
+
+        for (int t = 0; t < THREADS; t++) {
+            long start = t * chunkSize;
+            long end = (t == THREADS - 1) ? TOTAL_SEEDS : start + chunkSize;
+
+            executor.submit(() -> searchRange(start, end, progress));
+        }
+
+        executor.shutdown();
+        executor.awaitTermination(Long.MAX_VALUE, java.util.concurrent.TimeUnit.MILLISECONDS);
+
+        System.out.println("Done.");
+    }
+
+    static int locateDistance(int x1, int z1, int x2, int z2) {
+        int dx = x2 - x1;
+        int dz = z2 - z1;
+        return (int) Math.round(Math.sqrt(dx * dx + dz * dz));
+    }
+
+    static void searchRange(long start,
+                            long end,
+                            AtomicLong progress) {
+
+        MCVersion version = MCVersion.v1_16_1;
+        Dimension ow = Dimension.OVERWORLD;
+        Dimension nether = Dimension.NETHER;
+        ChunkRand rand = new ChunkRand();
+
+        DesertPyramid pyramid = new DesertPyramid(version);
+        DesertPyramidGenerator dpg = new DesertPyramidGenerator(version);
+
+        BastionRemnant bastion = new BastionRemnant(version);
+        Fortress fortress = new Fortress(version);
+
+        CPos zeroZero = new CPos(0, 0);
+
+        for (long structureSeed = start; structureSeed < end; structureSeed++) {
+            long done = progress.incrementAndGet();
+            if (done % 1_000_000L == 0) {
+                System.out.printf("Progress: %.1f%%%n", (done * 100.0) / TOTAL_SEEDS);
+            }
+
+            // =========================
+            // TEMPLE STRUCTURE CHECK
+            // =========================
+            CPos pyramidPos = pyramid.getInRegion(structureSeed, 0, 0, rand);
+            if (pyramidPos == null) continue;
+
+            // distance filter
+            if (pyramidPos.distanceTo(CPos.ZERO, DistanceMetric.CHEBYSHEV) > 5) continue;
+
+            var terrainGen = TerrainGenerator.of(BiomeSource.of(ow, version, structureSeed));
+            dpg.generate(terrainGen, pyramidPos); // make dpg usable
+
+            var chestLoot = pyramid.getLoot(structureSeed, dpg, rand, false);
+
+            if (chestLoot.isEmpty()) continue;
+
+            boolean chestMeetsAllConditions = false;
+
+            int notchCount = 0;
+            int appleCount = 0;
+            int fleshCount = 0;
+
+            int ironCount = 0;
+            int diamondCount = 0;
+
+            for (var chest : chestLoot) {
+                notchCount += chest.getCountExact(Items.ENCHANTED_GOLDEN_APPLE);
+                appleCount += chest.getCountExact(Items.GOLDEN_APPLE);
+                ironCount += chest.getCountExact(Items.IRON_INGOT);
+                fleshCount += chest.getCountExact(Items.ROTTEN_FLESH);
+                diamondCount += chest.getCountExact(Items.DIAMOND);
+
+            }
+            // check items
+            itemCheck:
+            {
+                if (ironCount < 7 && (diamondCount < 3 || ironCount < 4)) break itemCheck;
+
+                if ((notchCount < 1 && appleCount < 3) || fleshCount < 10) break itemCheck;
+
+                chestMeetsAllConditions = true;
+            }
+
+            if (!chestMeetsAllConditions) continue;
+
+
+            // =========================
+            // BASTION + FORTRESS
+            // =========================
+            CPos foundBastion = null;
+            CPos foundFort = null;
+            outer:
+            for (int rx = -1; rx <= 1; rx++) {
+                for (int rz = -1; rz <= 1; rz++) {
+
+                    CPos b = bastion.getInRegion(structureSeed, rx, rz, new ChunkRand());
+                    if (b == null) continue;
+                    if (b.distanceTo(zeroZero, DistanceMetric.CHEBYSHEV) > 8) continue;
+
+                    for (int frx = rx - 1; frx <= rx + 1; frx++) {
+                        for (int frz = rz - 1; frz <= rz + 1; frz++) {
+
+                            CPos f = fortress.getInRegion(structureSeed, frx, frz, new ChunkRand());
+                            if (f == null) continue;
+
+                            if (f.distanceTo(b, DistanceMetric.CHEBYSHEV) <= 12) {
+                                foundBastion = b;
+                                foundFort = f;
+                                break outer;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (foundBastion == null || foundFort == null) continue;
+
+            final CPos finalBastion = foundBastion;
+            final CPos finalFort = foundFort;
+            final long finalStructureSeed = structureSeed;
+
+            // =========================
+            // WORLD SEED CHECKS
+            // =========================
+
+            WorldSeed.getSisterSeeds(structureSeed).asStream().boxed().limit(1000).forEach(worldSeed -> {
+                // OVERWORLD
+                BiomeSource overworldSource = BiomeSource.of(ow, version, worldSeed);
+                if (!pyramid.canSpawn(pyramidPos, overworldSource)) {
+                    return;
+                }
+
+                // check for forest biome within 3 chunks (for trees)
+                boolean hasTreeBiome = false;
+                OverworldBiomeSource owSource = (OverworldBiomeSource) overworldSource;
+                outer2:
+                for (int dx = -3; dx <= 3; dx++) {
+                    for (int dz = -3; dz <= 3; dz++) {
+                        CPos checkPos = new CPos(pyramidPos.getX() + dx, pyramidPos.getZ() + dz);
+                        Biome b = owSource.getBiome(checkPos.toBlockPos().getX(), 0, checkPos.toBlockPos().getZ());
+                        if (
+                                b == Biomes.FOREST
+                                        || b == Biomes.BIRCH_FOREST
+                                        || b == Biomes.FLOWER_FOREST
+                                        || b == Biomes.DARK_FOREST
+                                        || b == Biomes.MUTATED_FOREST
+                                        || b == Biomes.SWAMP
+                        ) {
+                            hasTreeBiome = true;
+                            break outer2;
+                        }
+                    }
+                }
+                if (!hasTreeBiome) return;
+
+                // check for river biome within 3 chunks (for gravel)
+                boolean hasRiverBiome = false;
+                outer2:
+                for (int dx = -3; dx <= 3; dx++) {
+                    for (int dz = -3; dz <= 3; dz++) {
+                        CPos checkPos = new CPos(pyramidPos.getX() + dx, pyramidPos.getZ() + dz);
+                        Biome b = owSource.getBiome(checkPos.toBlockPos().getX(), 0, checkPos.toBlockPos().getZ());
+                        if (
+                                b == Biomes.RIVER
+                                        || b == Biomes.FROZEN_RIVER
+                                        || b == Biomes.SWAMP
+                        ) {
+                            hasRiverBiome = true;
+                            break outer2;
+                        }
+                    }
+                }
+                if (!hasRiverBiome) return;
+
+                // NETHER
+                BiomeSource netherSource = BiomeSource.of(nether, version, worldSeed);
+                if (!bastion.canSpawn(finalBastion, netherSource)) return;
+                if (!fortress.canSpawn(finalFort, netherSource)) return;
+
+
+                // SPAWN
+                CPos spawnPos = SpawnPoint.getApproximateSpawn((OverworldBiomeSource) overworldSource).toChunkPos();
+                if (spawnPos.distanceTo(pyramidPos, DistanceMetric.CHEBYSHEV) > 3) return;
+
+                TerrainGenerator terrainGenerator = TerrainGenerator.of(overworldSource);
+                /*
+                // LAVA CHECK (last — most expensive)
+                boolean hasLava = false;
+                int pyramidBlockX = pyramidPos.getX() << 4;
+                int pyramidBlockZ = pyramidPos.getZ() << 4;
+                lavaSearch:
+                for (int dx = -80; dx <= 80; dx += 2) {
+                    for (int dz = -80; dz <= 80; dz += 2) {
+                        int bx = pyramidBlockX + dx;
+                        int bz = pyramidBlockZ + dz;
+                        int surfaceY = terrainGenerator.getFirstHeightInColumn(bx, bz, TerrainGenerator.WORLD_SURFACE_WG);
+                        for (int dy = -3; dy <= 1; dy++) {
+                            var block = terrainGenerator.getBlockAt(bx, surfaceY + dy, bz);
+                            if (block.isPresent() && block.get().getId() == Blocks.LAVA.getId()) {
+                                hasLava = true;
+                                break lavaSearch;
+                            }
+                        }
+                    }
+                }
+                if (!hasLava) return;
+                 */
+
+                // REAL TERRAIN GENERATION
+                DesertPyramidGenerator desertPyramidGenerator = new DesertPyramidGenerator(version);
+                if (!desertPyramidGenerator.generate(terrainGenerator, pyramidPos)) return;
+
+                if (chestLoot.isEmpty()) {
+                    return;
+                }
+
+                System.out.println(worldSeed
+                        + " ("
+                        + finalStructureSeed
+                        + "), Desert Temple: ["
+                        + (int)((pyramidPos.getX() * 16) + 10)
+                        + ", "
+                        + (int)((pyramidPos.getZ() * 16) + 10)
+                        + "] (" + locateDistance(0, 0, (int)((pyramidPos.getX() * 16) + 10), (int)((pyramidPos.getZ() * 16) + 10)) + "), bastion: ["
+                        + finalBastion.getX() * 16
+                        + ", "
+                        + finalBastion.getZ() * 16
+                        + "] (" + locateDistance(0, 0, finalBastion.getX() * 16, finalBastion.getZ() * 16) + "), fortress: ["
+                        + finalFort.getX() * 16
+                        + ", "
+                        + finalFort.getZ() * 16
+                        + "] (" + locateDistance(finalBastion.getX() * 16, finalBastion.getZ() * 16, finalFort.getX() * 16, finalFort.getZ() * 16) + ")"
+                );
+            });
+        }
+    }
+}
