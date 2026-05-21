@@ -1,4 +1,4 @@
-package org.example;
+package com.twomx.seedfinder.speedrun.seedtype;
 
 import com.seedfinding.mcbiome.biome.Biome;
 import com.seedfinding.mcbiome.biome.Biomes;
@@ -18,6 +18,9 @@ import com.seedfinding.mcfeature.structure.DesertPyramid;
 import com.seedfinding.mcfeature.structure.Fortress;
 import com.seedfinding.mcfeature.structure.generator.structure.DesertPyramidGenerator;
 import com.seedfinding.mcterrain.TerrainGenerator;
+import com.twomx.seedfinder.speedrun.BiomeUtils;
+import com.twomx.seedfinder.speedrun.FastionPair;
+import com.twomx.seedfinder.speedrun.StructureFinder;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;

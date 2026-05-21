@@ -1,14 +1,12 @@
-package org.example;
+package com.twomx.seedfinder.speedrun.seedtype;
 
 import com.seedfinding.mcbiome.source.BiomeSource;
-import com.seedfinding.mcbiome.source.NetherBiomeSource;
 import com.seedfinding.mcbiome.source.OverworldBiomeSource;
 import com.seedfinding.mccore.block.Blocks;
 import com.seedfinding.mccore.rand.ChunkRand;
 import com.seedfinding.mccore.rand.seed.WorldSeed;
 import com.seedfinding.mccore.state.Dimension;
 import com.seedfinding.mccore.util.math.DistanceMetric;
-import com.seedfinding.mccore.util.pos.BPos;
 import com.seedfinding.mccore.util.pos.CPos;
 import com.seedfinding.mccore.version.MCVersion;
 import com.seedfinding.mcfeature.loot.item.ItemStack;
@@ -16,7 +14,6 @@ import com.seedfinding.mcfeature.loot.item.Items;
 import com.seedfinding.mcfeature.misc.SpawnPoint;
 import com.seedfinding.mcfeature.structure.BastionRemnant;
 import com.seedfinding.mcfeature.structure.Fortress;
-import com.seedfinding.mcfeature.structure.RuinedPortal;
 import com.seedfinding.mcfeature.structure.generator.structure.RuinedPortalGenerator;
 import com.seedfinding.mcterrain.TerrainGenerator;
 
@@ -25,7 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class Main {
+public class RuinedPortal {
     static final long TOTAL_SEEDS = 100_000_000L;
     static final int THREADS = Math.max(Runtime.getRuntime().availableProcessors() - 2, 1);
 
@@ -68,7 +65,7 @@ public class Main {
         Dimension nether = Dimension.NETHER;
         ChunkRand rand = new ChunkRand();
         ChunkRand randBast = new ChunkRand();
-        RuinedPortal rp = new RuinedPortal(ow, version);
+        com.seedfinding.mcfeature.structure.RuinedPortal rp = new com.seedfinding.mcfeature.structure.RuinedPortal(ow, version);
         RuinedPortalGenerator rpg = new RuinedPortalGenerator(version);
         CPos zeroZero = new CPos(0, 0);
 
@@ -86,7 +83,7 @@ public class Main {
             // Ruined portal
             {
                 CPos rpPos = rp.getInRegion(structureSeed, 0, 0, rand);
-                //if (rpPos.distanceTo(CPos.ZERO, DistanceMetric.CHEBYSHEV) > 5) continue;
+                if (rpPos.distanceTo(CPos.ZERO, DistanceMetric.CHEBYSHEV) > 8) continue;
 
                 var terrainGen = TerrainGenerator.of(BiomeSource.of(ow, version, structureSeed));
                 rpg.generate(terrainGen, rpPos); // make rpg usable

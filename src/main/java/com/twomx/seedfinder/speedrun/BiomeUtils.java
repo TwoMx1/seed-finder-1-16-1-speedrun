@@ -1,32 +1,22 @@
-package org.example;
+package com.twomx.seedfinder.speedrun;
 
 import com.seedfinding.mcbiome.biome.Biome;
 import com.seedfinding.mcbiome.biome.Biomes;
 import com.seedfinding.mcbiome.source.OverworldBiomeSource;
 import com.seedfinding.mccore.util.pos.CPos;
+
 import java.util.Set;
 
 public class BiomeUtils {
 
-    public static boolean hasTreeBiomeNear(
-            OverworldBiomeSource source,
-            CPos center,
-            int radius
-    ) {
+    public static boolean hasTreeBiomeNear(OverworldBiomeSource source, CPos center, int radius) {
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dz = -radius; dz <= radius; dz++) {
-
                 CPos checkPos = new CPos(center.getX() + dx, center.getZ() + dz);
 
-                Biome b = source.getBiome(
-                        checkPos.toBlockPos().getX(),
-                        0,
-                        checkPos.toBlockPos().getZ()
-                );
+                Biome b = source.getBiome(checkPos.toBlockPos().getX(), 0, checkPos.toBlockPos().getZ());
 
-                if (isTreeBiome(b)) {
-                    return true;
-                }
+                if (isTreeBiome(b)) return true;
             }
         }
 

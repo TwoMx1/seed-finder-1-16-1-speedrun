@@ -1,4 +1,4 @@
-package org.example;
+package com.twomx.seedfinder.speedrun;
 
 import com.seedfinding.mccore.util.pos.CPos;
 

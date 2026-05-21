@@ -1,4 +1,4 @@
-package org.example;
+package com.twomx.seedfinder.speedrun;
 
 import com.seedfinding.mcfeature.structure.BastionRemnant;
 import com.seedfinding.mcfeature.structure.Fortress;
