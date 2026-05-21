@@ -2,12 +2,8 @@ package org.example;
 
 import com.seedfinding.mcbiome.biome.Biome;
 import com.seedfinding.mcbiome.biome.Biomes;
-import com.seedfinding.mcbiome.layer.end.EndBiomeLayer;
 import com.seedfinding.mcbiome.source.BiomeSource;
-import com.seedfinding.mcbiome.source.EndBiomeSource;
 import com.seedfinding.mcbiome.source.OverworldBiomeSource;
-import com.seedfinding.mccore.block.Block;
-import com.seedfinding.mccore.block.Blocks;
 import com.seedfinding.mccore.rand.ChunkRand;
 import com.seedfinding.mccore.rand.seed.PillarSeed;
 import com.seedfinding.mccore.rand.seed.WorldSeed;
@@ -20,18 +16,14 @@ import com.seedfinding.mcfeature.misc.SpawnPoint;
 import com.seedfinding.mcfeature.structure.BastionRemnant;
 import com.seedfinding.mcfeature.structure.DesertPyramid;
 import com.seedfinding.mcfeature.structure.Fortress;
-import com.seedfinding.mcfeature.structure.Village;
 import com.seedfinding.mcfeature.structure.generator.structure.DesertPyramidGenerator;
-import com.seedfinding.mcfeature.structure.generator.structure.RuinedPortalGenerator;
-import com.seedfinding.mcfeature.structure.generator.structure.VillageGenerator;
 import com.seedfinding.mcterrain.TerrainGenerator;
-import com.seedfinding.mcterrain.terrain.EndTerrainGenerator;
 
-import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Set;
 
 import static com.seedfinding.mccore.rand.seed.PillarSeed.getPillarHeights;
 
@@ -39,6 +31,7 @@ public class DesertTemple {
 
     static final long TOTAL_SEEDS = 100_000_000L;
     static final int THREADS = Math.max(Runtime.getRuntime().availableProcessors() - 2, 1);
+    static CPos zeroZero = new CPos(0, 0);
 
     public static void main(String[] args) throws InterruptedException {
         System.out.println("THREAD_COUNT: " + THREADS);
@@ -93,8 +86,6 @@ public class DesertTemple {
         BastionRemnant bastion = new BastionRemnant(version);
         Fortress fortress = new Fortress(version);
 
-        CPos zeroZero = new CPos(0, 0);
-
         for (long structureSeed = start; structureSeed < end; structureSeed++) {
             long done = progress.incrementAndGet();
             if (done % 1_000_000L == 0)
@@ -135,34 +126,11 @@ public class DesertTemple {
             // =========================
             // BASTION + FORTRESS
             // =========================
-            CPos foundBastion = null;
-            CPos foundFort = null;
-            outer:
-            for (int rx = -1; rx <= 1; rx++) {
-                for (int rz = -1; rz <= 1; rz++) {
-                    CPos b = bastion.getInRegion(structureSeed, rx, rz, new ChunkRand());
-                    if (b == null) continue;
-                    if (b.distanceTo(zeroZero, DistanceMetric.CHEBYSHEV) > 8) continue; // 8 chunk bastion
+            FastionPair fastionPair = StructureFinder.findBastionFortress(structureSeed, bastion, fortress, zeroZero, 8 /* max bast dist */, 12 /* max fort dist */, rand);
+            if (fastionPair == null) continue;
 
-                    for (int frx = rx - 1; frx <= rx + 1; frx++) {
-                        for (int frz = rz - 1; frz <= rz + 1; frz++) {
-                            CPos f = fortress.getInRegion(structureSeed, frx, frz, new ChunkRand());
-                            if (f == null) continue;
-
-                            if (f.distanceTo(b, DistanceMetric.CHEBYSHEV) <= 12) { // 12 chunk fort
-                                foundBastion = b;
-                                foundFort = f;
-                                break outer;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (foundBastion == null || foundFort == null) continue;
-
-            final CPos finalBastion = foundBastion;
-            final CPos finalFort = foundFort;
+            final CPos finalBastion = fastionPair.bastion;
+            final CPos finalFort = fastionPair.fortress;
             final long finalStructureSeed = structureSeed;
 
             // pillars for 0 cycle
@@ -184,60 +152,16 @@ public class DesertTemple {
             WorldSeed.getSisterSeeds(structureSeed).asStream().boxed().limit(1000).forEach(worldSeed -> {
                 // OVERWORLD
                 BiomeSource overworldSource = BiomeSource.of(ow, version, worldSeed);
-                if (!pyramid.canSpawn(pyramidPos, overworldSource)) {
+                if (!pyramid.canSpawn(pyramidPos, overworldSource))
                     return;
-                }
 
                 // check for forest biome within 3 chunks (for trees)
-                boolean hasTreeBiome = false;
                 OverworldBiomeSource owSource = (OverworldBiomeSource) overworldSource;
-                outer2:
-                for (int dx = -3; dx <= 3; dx++) {
-                    for (int dz = -3; dz <= 3; dz++) {
-                        CPos checkPos = new CPos(pyramidPos.getX() + dx, pyramidPos.getZ() + dz);
-                        Biome b = owSource.getBiome(checkPos.toBlockPos().getX(), 0, checkPos.toBlockPos().getZ());
-                        if (
-                                b == Biomes.FOREST
-                                        || b == Biomes.BIRCH_FOREST
-                                        || b == Biomes.FLOWER_FOREST
-                                        || b == Biomes.DARK_FOREST
-                                        || b == Biomes.MUTATED_FOREST
-                                        || b == Biomes.SWAMP
-                                        || b == Biomes.FOREST_HILLS
-                                        || b == Biomes.MUTATED_BIRCH_FOREST
-                                        || b == Biomes.MUTATED_ROOFED_FOREST
-                                        || b == Biomes.ROOFED_FOREST
-                                        || b == Biomes.TALL_BIRCH_FOREST
-                                        || b == Biomes.BIRCH_FOREST_HILLS
-                                        || b == Biomes.BIRCH_FOREST_HILLS_M
-                                        || b == Biomes.BIRCH_FOREST_M
-                                        || b == Biomes.DARK_FOREST_HILLS
-                        ) {
-                            hasTreeBiome = true;
-                            break outer2;
-                        }
-                    }
-                }
-                if (!hasTreeBiome) return;
+                if (!BiomeUtils.hasTreeBiomeNear(owSource, pyramidPos, 3 /* MAX DISTANCE */)) return;
 
                 // check for river biome within 4 chunks (for gravel)
-                boolean hasRiverBiome = false;
-                outer2:
-                for (int dx = -4; dx <= 4; dx++) {
-                    for (int dz = -4; dz <= 4; dz++) {
-                        CPos checkPos = new CPos(pyramidPos.getX() + dx, pyramidPos.getZ() + dz);
-                        Biome b = owSource.getBiome(checkPos.toBlockPos().getX(), 0, checkPos.toBlockPos().getZ());
-                        if (
-                                b == Biomes.RIVER
-                                        || b == Biomes.FROZEN_RIVER
-                                        || b == Biomes.SWAMP
-                        ) {
-                            hasRiverBiome = true;
-                            break outer2;
-                        }
-                    }
-                }
-                if (!hasRiverBiome) return;
+                if (!BiomeUtils.hasAnyBiomeNear(owSource, pyramidPos, 4 /* MAX DISTANCE */, Set.of(Biomes.RIVER, Biomes.FROZEN_RIVER, Biomes.SWAMP)))
+                    return;
 
                 // NETHER
                 BiomeSource netherSource = BiomeSource.of(nether, version, worldSeed);
@@ -280,9 +204,8 @@ public class DesertTemple {
                 DesertPyramidGenerator desertPyramidGenerator = new DesertPyramidGenerator(version);
                 if (!desertPyramidGenerator.generate(terrainGenerator, pyramidPos)) return;
 
-                if (chestLoot.isEmpty()) {
+                if (chestLoot.isEmpty())
                     return;
-                }
 
                 // END spawn
                 BiomeSource endSource = BiomeSource.of(Dimension.END, version, worldSeed);
