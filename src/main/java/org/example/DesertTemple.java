@@ -56,6 +56,20 @@ public class DesertTemple {
         return (int) Math.round(Math.sqrt(dx * dx + dz * dz));
     }
 
+    static boolean isEnoughLoot(int notchCount, int appleCount, int fleshCount, int ironCount, int diamondCount, int reqScore) {
+        if (reqScore == -1) return true;
+
+        int score = 0;
+
+        if (ironCount < 7 && (diamondCount < 3 || ironCount < 4)) return false; // not enough iron
+
+        score += fleshCount * 1;
+        score += appleCount * 8;
+        score += notchCount * 20;
+
+        return (score >= reqScore);
+    }
+
     static void searchRange(long start,
                             long end,
                             AtomicLong progress) {
@@ -95,8 +109,6 @@ public class DesertTemple {
 
             if (chestLoot.isEmpty()) continue;
 
-            boolean chestMeetsAllConditions = false;
-
             int notchCount = 0;
             int appleCount = 0;
             int fleshCount = 0;
@@ -113,17 +125,7 @@ public class DesertTemple {
 
             }
             // check items
-            itemCheck:
-            {
-                if (ironCount < 7 && (diamondCount < 3 || ironCount < 4)) break itemCheck;
-
-                if ((notchCount < 1 && appleCount < 3) || fleshCount < 10) break itemCheck;
-
-                chestMeetsAllConditions = true;
-            }
-
-            if (!chestMeetsAllConditions) continue;
-
+            if (!isEnoughLoot(notchCount, appleCount, fleshCount, ironCount, diamondCount, 30)) continue;
 
             // =========================
             // BASTION + FORTRESS
@@ -259,10 +261,10 @@ public class DesertTemple {
                         + " ("
                         + finalStructureSeed
                         + "), Desert Temple: ["
-                        + (int)((pyramidPos.getX() * 16) + 10)
+                        + (int) ((pyramidPos.getX() * 16) + 10)
                         + ", "
-                        + (int)((pyramidPos.getZ() * 16) + 10)
-                        + "] (" + locateDistance(0, 0, (int)((pyramidPos.getX() * 16) + 10), (int)((pyramidPos.getZ() * 16) + 10)) + "), bastion: ["
+                        + (int) ((pyramidPos.getZ() * 16) + 10)
+                        + "] (" + locateDistance(0, 0, (int) ((pyramidPos.getX() * 16) + 10), (int) ((pyramidPos.getZ() * 16) + 10)) + "), bastion: ["
                         + finalBastion.getX() * 16
                         + ", "
                         + finalBastion.getZ() * 16
