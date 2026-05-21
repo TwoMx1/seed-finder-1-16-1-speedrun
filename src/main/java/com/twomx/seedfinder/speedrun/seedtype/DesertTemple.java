@@ -31,7 +31,6 @@ import java.util.Set;
 import static com.seedfinding.mccore.rand.seed.PillarSeed.getPillarHeights;
 
 public class DesertTemple {
-
     static final long TOTAL_SEEDS = 100_000_000L;
     static final int THREADS = Math.max(Runtime.getRuntime().availableProcessors() - 2, 1);
     static CPos zeroZero = new CPos(0, 0);
@@ -54,12 +53,6 @@ public class DesertTemple {
 
         System.out.println();
         System.out.println("SCANNED ALL SEEDS.");
-    }
-
-    static int locateDistance(int x1, int z1, int x2, int z2) {
-        int dx = x2 - x1;
-        int dz = z2 - z1;
-        return (int) Math.round(Math.sqrt(dx * dx + dz * dz));
     }
 
     static boolean isEnoughLoot(int notchCount, int appleCount, int fleshCount, int ironCount, int diamondCount, int reqScore, boolean extraIron) {
@@ -153,10 +146,8 @@ public class DesertTemple {
             // WORLD SEED CHECKS
             // =========================
             WorldSeed.getSisterSeeds(structureSeed).asStream().boxed().limit(1000).forEach(worldSeed -> {
-                // OVERWORLD
                 BiomeSource overworldSource = BiomeSource.of(ow, version, worldSeed);
-                if (!pyramid.canSpawn(pyramidPos, overworldSource))
-                    return;
+                if (!pyramid.canSpawn(pyramidPos, overworldSource)) return;
 
                 // check for forest biome within 3 chunks (for trees)
                 OverworldBiomeSource owSource = (OverworldBiomeSource) overworldSource;
@@ -178,7 +169,12 @@ public class DesertTemple {
                 CPos spawnPos = SpawnPoint.getApproximateSpawn((OverworldBiomeSource) overworldSource).toChunkPos();
                 if (spawnPos.distanceTo(pyramidPos, DistanceMetric.CHEBYSHEV) > 3) return;
 
+                // REAL TERRAIN GENERATION
                 TerrainGenerator terrainGenerator = TerrainGenerator.of(overworldSource);
+                DesertPyramidGenerator desertPyramidGenerator = new DesertPyramidGenerator(version);
+                if (!desertPyramidGenerator.generate(terrainGenerator, pyramidPos)) return;
+
+                if (chestLoot.isEmpty()) return;
 
                 // LAVA CHECK (last — most expensive)
                 /*
@@ -203,13 +199,6 @@ public class DesertTemple {
                 if (!hasLava) return;
                  */
 
-                // REAL TERRAIN GENERATION
-                DesertPyramidGenerator desertPyramidGenerator = new DesertPyramidGenerator(version);
-                if (!desertPyramidGenerator.generate(terrainGenerator, pyramidPos)) return;
-
-                if (chestLoot.isEmpty())
-                    return;
-
                 // END spawn
                 BiomeSource endSource = BiomeSource.of(Dimension.END, version, worldSeed);
                 TerrainGenerator endGen = TerrainGenerator.of(endSource);
@@ -228,6 +217,7 @@ public class DesertTemple {
                 String endSpawnStatus = "Open";
                 if (caged) endSpawnStatus = "Caged [" + height + "]";
 
+                // final seed print
                 System.out.printf(
                         "%d (%d)%n" +
                                 "Desert Temple: [%4d, %4d] (%d)%n" +
@@ -240,15 +230,15 @@ public class DesertTemple {
 
                         (pyramidPos.getX() * 16) + 10,
                         (pyramidPos.getZ() * 16) + 10,
-                        locateDistance(spawnPos.getX(), spawnPos.getZ(), (pyramidPos.getX() * 16) + 10, (pyramidPos.getZ() * 16) + 10),
+                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((pyramidPos.getX() * 16) + 10,(pyramidPos.getZ() * 16) + 10), DistanceMetric.EUCLIDEAN)),
 
                         finalBastion.getX() * 16,
                         finalBastion.getZ() * 16,
-                        locateDistance(0, 0, finalBastion.getX() * 16, finalBastion.getZ() * 16),
+                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((finalBastion.getX() * 16), (finalBastion.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
 
                         finalFort.getX() * 16,
                         finalFort.getZ() * 16,
-                        locateDistance(finalBastion.getX() * 16, finalBastion.getZ() * 16, finalFort.getX() * 16, finalFort.getZ() * 16),
+                        Math.toIntExact((long) (new CPos((finalBastion.getX() * 16), (finalBastion.getZ() * 16))).distanceTo(new CPos((finalFort.getX() * 16), (finalFort.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
 
                         endSpawnStatus,
                         backOrFront,
