@@ -17,8 +17,10 @@ import com.seedfinding.mcfeature.structure.BastionRemnant;
 import com.seedfinding.mcfeature.structure.DesertPyramid;
 import com.seedfinding.mcfeature.structure.Fortress;
 import com.seedfinding.mcfeature.structure.generator.structure.DesertPyramidGenerator;
+import com.seedfinding.mcfeature.structure.generator.structure.RuinedPortalGenerator;
 import com.seedfinding.mcterrain.TerrainGenerator;
 import com.twomx.seedfinder.speedrun.BiomeUtils;
+import com.twomx.seedfinder.speedrun.EnterCheck;
 import com.twomx.seedfinder.speedrun.FastionPair;
 import com.twomx.seedfinder.speedrun.StructureFinder;
 
@@ -29,10 +31,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.Set;
 
 import static com.seedfinding.mccore.rand.seed.PillarSeed.getPillarHeights;
+import static com.twomx.seedfinder.speedrun.EnterCheck.portalIsOnSurface;
+import static com.twomx.seedfinder.speedrun.EnterCheck.rpHasEnoughLava;
 
 public class DesertTemple {
     static final long TOTAL_SEEDS = 100_000_000L;
-    static final int THREADS = Math.max(Runtime.getRuntime().availableProcessors() - 2, 1);
+    static final int THREADS = Math.max(Runtime.getRuntime().availableProcessors() - 0, 1);
     static CPos zeroZero = new CPos(0, 0);
 
     public static void main(String[] args) throws InterruptedException {
@@ -76,8 +80,13 @@ public class DesertTemple {
         Dimension nether = Dimension.NETHER;
         ChunkRand rand = new ChunkRand();
 
+        // PYRAMID
         DesertPyramid pyramid = new DesertPyramid(version);
         DesertPyramidGenerator dpg = new DesertPyramidGenerator(version);
+
+        // RP
+        com.seedfinding.mcfeature.structure.RuinedPortal rp = new com.seedfinding.mcfeature.structure.RuinedPortal(ow, version);
+        RuinedPortalGenerator rpg = new RuinedPortalGenerator(version);
 
         BastionRemnant bastion = new BastionRemnant(version);
         Fortress fortress = new Fortress(version);
@@ -99,9 +108,19 @@ public class DesertTemple {
             var terrainGen = TerrainGenerator.of(BiomeSource.of(ow, version, structureSeed));
             dpg.generate(terrainGen, pyramidPos); // make dpg usable
 
+            // RP
+            CPos rpPos = rp.getInRegion(structureSeed, 0, 0, rand);
+            if (rpPos == null) continue;
+            if (rpPos.distanceTo(CPos.ZERO, DistanceMetric.CHEBYSHEV) > 10) continue; // distance to spawn filter
+            rpg.generate(terrainGen, rpPos); // make rpg usable
+            RuinedPortalGenerator.Location location = rpg.getLocation();
+            if (!portalIsOnSurface(location)) continue; // check portal on surface
+
+
+            // LOOT CHECK V
             var chestLoot = pyramid.getLoot(structureSeed, dpg, rand, false);
 
-            int reqScore = 30; // set to wanted score of items: notch = 20, apple = 8, flesh = 1
+            int reqScore = 30; // set to wanted score of items: notch = 20, apple = 8, flesh = 1 /FIXME @@@@@@@@@@@@@@@@@@@
             int notchCount = 0, appleCount = 0, fleshCount = 0, ironCount = 0, diamondCount = 0;
 
             // chest check
@@ -115,7 +134,7 @@ public class DesertTemple {
                     diamondCount += chest.getCountExact(Items.DIAMOND);
                 }
                 // check items
-                if (!isEnoughLoot(notchCount, appleCount, fleshCount, ironCount, diamondCount, reqScore, true))
+                if (!isEnoughLoot(notchCount, appleCount, fleshCount, ironCount, diamondCount, reqScore, false))
                     continue;
             }
 
@@ -148,13 +167,14 @@ public class DesertTemple {
             WorldSeed.getSisterSeeds(structureSeed).asStream().boxed().limit(1000).forEach(worldSeed -> {
                 BiomeSource overworldSource = BiomeSource.of(ow, version, worldSeed);
                 if (!pyramid.canSpawn(pyramidPos, overworldSource)) return;
+                if (!rp.canSpawn(rpPos, overworldSource)) return;
 
                 // check for forest biome within 3 chunks (for trees)
                 OverworldBiomeSource owSource = (OverworldBiomeSource) overworldSource;
                 if (!BiomeUtils.hasTreeBiomeNear(owSource, pyramidPos, 3 /* MAX DISTANCE */)) return;
 
                 // check for river biome within 4 chunks (for gravel)
-                if (!BiomeUtils.hasAnyBiomeNear(owSource, pyramidPos, 4 /* MAX DISTANCE */, Set.of(Biomes.RIVER, Biomes.FROZEN_RIVER, Biomes.SWAMP)))
+                if (!BiomeUtils.hasAnyBiomeNear(owSource, pyramidPos, 4 /* MAX DISTANCE */, Set.of(Biomes.RIVER, Biomes.FROZEN_RIVER)))
                     return;
 
                 // NETHER
@@ -165,14 +185,20 @@ public class DesertTemple {
                 Biome bastionBiome = netherSource.getBiome(finalBastion.getX() << 4, 0, finalBastion.getZ() << 4);
                 if (bastionBiome == Biomes.BASALT_DELTAS) return; // skip basalt bastion
 
-                // pyramid distance from SPAWN
+                // pyramid and RP distance from SPAWN
                 CPos spawnPos = SpawnPoint.getApproximateSpawn((OverworldBiomeSource) overworldSource).toChunkPos();
                 if (spawnPos.distanceTo(pyramidPos, DistanceMetric.CHEBYSHEV) > 3) return;
+                if (pyramidPos.distanceTo(rpPos, DistanceMetric.CHEBYSHEV) > 5) return;
 
                 // REAL TERRAIN GENERATION
                 TerrainGenerator terrainGenerator = TerrainGenerator.of(overworldSource);
                 DesertPyramidGenerator desertPyramidGenerator = new DesertPyramidGenerator(version);
                 if (!desertPyramidGenerator.generate(terrainGenerator, pyramidPos)) return;
+                RuinedPortalGenerator ruinedPortalGeneratorSeed = new RuinedPortalGenerator(version);
+                if (!ruinedPortalGeneratorSeed.generate(terrainGenerator, rpPos)) return;
+
+                String type = ruinedPortalGeneratorSeed.getType();
+                if (!rpHasEnoughLava(type)) return; // check portal has lava
 
                 if (chestLoot.isEmpty()) return;
 
@@ -221,6 +247,7 @@ public class DesertTemple {
                 System.out.printf(
                         "%d (%d)%n" +
                                 "Desert Temple: [%4d, %4d] (%d)%n" +
+                                "RP:            [%4d, %4d] (%d)%n" +
                                 "Bastion:       [%4d, %4d] (%d)%n" +
                                 "Fort:          [%4d, %4d] (%d)%n" +
                                 "%s, %s %d%n%n",
@@ -231,6 +258,10 @@ public class DesertTemple {
                         (pyramidPos.getX() * 16) + 10,
                         (pyramidPos.getZ() * 16) + 10,
                         Math.toIntExact((long) spawnPos.distanceTo(new CPos((pyramidPos.getX() * 16) + 10,(pyramidPos.getZ() * 16) + 10), DistanceMetric.EUCLIDEAN)),
+
+                        (rpPos.getX() * 16) + 10,
+                        (rpPos.getZ() * 16) + 10,
+                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((rpPos.getX() * 16),(rpPos.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
 
                         finalBastion.getX() * 16,
                         finalBastion.getZ() * 16,

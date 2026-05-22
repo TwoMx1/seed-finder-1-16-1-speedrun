@@ -29,7 +29,7 @@ public class BiomeUtils {
                 || b == Biomes.FLOWER_FOREST
                 || b == Biomes.DARK_FOREST
                 || b == Biomes.MUTATED_FOREST
-                || b == Biomes.SWAMP
+                //|| b == Biomes.SWAMP
                 || b == Biomes.FOREST_HILLS
                 || b == Biomes.MUTATED_BIRCH_FOREST
                 || b == Biomes.MUTATED_ROOFED_FOREST
