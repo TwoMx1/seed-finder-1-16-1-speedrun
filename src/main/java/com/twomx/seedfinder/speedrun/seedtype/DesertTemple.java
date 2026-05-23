@@ -24,6 +24,8 @@ import com.twomx.seedfinder.speedrun.EnterCheck;
 import com.twomx.seedfinder.speedrun.FastionPair;
 import com.twomx.seedfinder.speedrun.StructureFinder;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -266,6 +268,7 @@ public class DesertTemple {
                 if (chestLoot.isEmpty()) return;
 
                 // scan chunks near pyramid for surface LAVA LAKE
+                List<CPos> lavaLakeList = new ArrayList<>();
                 CPos lavaLakeCords = new CPos(-999, -999);
                 final int DESERT_LAVA_LAKE_SALT_1_16 = 10000; //10000 = desert, desert hills, desert lakes biomes, 10001 = all other
                 boolean hasLava = false;
@@ -276,10 +279,13 @@ public class DesertTemple {
                         if (owSource.getBiome(cx << 4, 0, cz << 4) != Biomes.DESERT) continue;
 
                         int[] lake = getLavaLake(worldSeed, cx << 4, cz << 4, DESERT_LAVA_LAKE_SALT_1_16);
-                        if (lake != null && lake[1] >= 60) { // surface-ish
+                        if (lake != null && lake[1] >= 60) {// surface-ish
+                            if (!validateLavaLake(terrainGenerator, cx << 4, cz << 4)) continue; // actually checks if it has lava
+
                             hasLava = true;
                             lavaLakeCords = new CPos(lake[0], lake[2]);
-                            break;
+                            lavaLakeList.add(lavaLakeCords);
+                            //break;
                         }
                     }
                     if (hasLava) break;
@@ -306,6 +312,8 @@ public class DesertTemple {
                 if (caged) endSpawnStatus = "Caged [" + height + "]";
 
                 // final seed print
+                System.out.println(lavaLakeList);
+
                 System.out.printf(
                         "%d (%d)%n" +
                                 "Desert Temple: [%4d, %4d] (%d)%n" +
@@ -320,23 +328,23 @@ public class DesertTemple {
                         worldSeed,
                         finalStructureSeed,
 
-                        (pyramidPos.getX() * 16) + 10,
-                        (pyramidPos.getZ() * 16) + 10,
-                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((pyramidPos.getX() * 16) + 10, (pyramidPos.getZ() * 16) + 10), DistanceMetric.EUCLIDEAN)),
+                        (pyramidPos.getX() << 4) + 10,
+                        (pyramidPos.getZ() << 4) + 10,
+                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((pyramidPos.getX() << 4) + 10, (pyramidPos.getZ() << 4) + 10), DistanceMetric.EUCLIDEAN)),
 
                         /*
-                        (rpPos.getX() * 16) + 10,
-                        (rpPos.getZ() * 16) + 10,
-                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((rpPos.getX() * 16),(rpPos.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
+                        (rpPos.getX() << 4) + 10,
+                        (rpPos.getZ() << 4) + 10,
+                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((rpPos.getX() << 4),(rpPos.getZ() << 4)), DistanceMetric.EUCLIDEAN)),
                          */
 
-                        finalBastion.getX() * 16,
-                        finalBastion.getZ() * 16,
-                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((finalBastion.getX() * 16), (finalBastion.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
+                        finalBastion.getX() << 4,
+                        finalBastion.getZ() << 4,
+                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((finalBastion.getX() << 4), (finalBastion.getZ() << 4)), DistanceMetric.EUCLIDEAN)),
 
-                        finalFort.getX() * 16,
-                        finalFort.getZ() * 16,
-                        Math.toIntExact((long) (new CPos((finalBastion.getX() * 16), (finalBastion.getZ() * 16))).distanceTo(new CPos((finalFort.getX() * 16), (finalFort.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
+                        finalFort.getX() << 4,
+                        finalFort.getZ() << 4,
+                        Math.toIntExact((long) (new CPos((finalBastion.getX() << 4), (finalBastion.getZ() << 4))).distanceTo(new CPos((finalFort.getX() << 4), (finalFort.getZ() << 4)), DistanceMetric.EUCLIDEAN)),
 
                         lavaLakeCords.getX(),
                         lavaLakeCords.getZ(),

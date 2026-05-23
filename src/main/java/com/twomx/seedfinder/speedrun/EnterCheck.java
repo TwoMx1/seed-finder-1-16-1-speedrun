@@ -1,8 +1,13 @@
 package com.twomx.seedfinder.speedrun;
 
+import com.seedfinding.mccore.block.Block;
+import com.seedfinding.mccore.block.Blocks;
 import com.seedfinding.mccore.rand.ChunkRand;
 import com.seedfinding.mccore.version.MCVersion;
 import com.seedfinding.mcfeature.structure.generator.structure.RuinedPortalGenerator;
+import com.seedfinding.mcterrain.TerrainGenerator;
+
+import java.util.Optional;
 
 import static com.seedfinding.mccore.rand.seed.ChunkSeeds.getDecoratorSeed;
 
@@ -63,5 +68,28 @@ public class EnterCheck {
             return new int[]{lx + blockX, y, lz + blockZ};
         }
         return null;
+    }
+
+    public static boolean validateLavaLake(TerrainGenerator generator, int blockX, int blockZ) {
+        // checks box:
+        // X: blockX -> blockX + boxSize
+        // Y: 61 -> 72
+        // Z: blockZ -> blockZ + boxSize
+
+        int boxSize = 8;
+        for (int x = blockX; x <= blockX + boxSize; x += 2) {
+            for (int z = blockZ; z <= blockZ + boxSize; z += 2) {
+                for (int y = 61; y <= 72; y++) {
+
+                    Optional<Block> block = generator.getBlockAt(x, y, z);
+
+                    if (block.orElse(null) == Blocks.LAVA) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 }

@@ -161,7 +161,7 @@ public class BuriedTreasureSeedFinder {
 
                 // check for forest biome within 3 chunks (for trees)
                 OverworldBiomeSource owSource = (OverworldBiomeSource) overworldSource;
-                if (!BiomeUtils.hasTreeBiomeNear(owSource, finalBtPos, 4 /* MAX DISTANCE */)) return;
+                if (!BiomeUtils.hasTreeBiomeNear(owSource, finalBtPos, 3 /* MAX DISTANCE */)) return;
                 if (!BiomeUtils.hasAnyBiomeNear(owSource, finalBtPos, 5 /* MAX DISTANCE */, Set.of(Biomes.DEEP_OCEAN))) return;
                 if (!BiomeUtils.hasAnyBiomeNear(owSource, finalBtPos, 5 /* MAX DISTANCE */, Set.of(Biomes.PLAINS))) return;
 
@@ -181,7 +181,7 @@ public class BuriedTreasureSeedFinder {
                 RegionStructure.Data<BuriedTreasure> treasureData = bt.at(finalBtPos.getX(), finalBtPos.getZ());
                 if (!treasureData.testStart(WorldSeed.toStructureSeed(worldSeed), rand)) return;
 
-                long decoratorSeed = rand.setPopulationSeed(worldSeed, finalBtPos.getX() * 16, finalBtPos.getZ() * 16, version);
+                long decoratorSeed = rand.setPopulationSeed(worldSeed, finalBtPos.getX() << 4, finalBtPos.getZ() << 4, version);
                 rand.setDecoratorSeed(decoratorSeed, 1, 3, version);
                 long lootTableSeed = rand.nextLong();
 
@@ -253,14 +253,14 @@ public class BuriedTreasureSeedFinder {
                         finalStructureSeed,
 
                         // bt cords + tp command
-                        finalBtPos.getX() * 16 + 9, finalBtPos.getZ() * 16 + 9,
+                        finalBtPos.getX() << 4 + 9, finalBtPos.getZ() << 4 + 9,
 
-                        finalBtPos.getX() * 16 + 9, finalBtPos.getZ() * 16 + 9,
+                        finalBtPos.getX() << 4 + 9, finalBtPos.getZ() << 4 + 9,
                         Math.toIntExact((long) spawnPos.distanceTo(finalBtPos, DistanceMetric.CHEBYSHEV)),
 
                         // bastion and fort
-                        finalBastion.getX() * 16, finalBastion.getZ() * 16,
-                        finalFort.getX() * 16, finalFort.getZ() * 16,
+                        finalBastion.getX() << 4, finalBastion.getZ() << 4,
+                        finalFort.getX() << 4, finalFort.getZ() << 4,
 
                         ironCount, diamondCount, goldCount, tntCount, fishCounter, // loot info
 

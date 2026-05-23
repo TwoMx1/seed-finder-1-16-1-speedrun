@@ -247,17 +247,17 @@ public class RuinedPortal {
                         worldSeed,
                         finalStructureSeed,
 
-                        (rpPos.getX() * 16) + 10,
-                        (rpPos.getZ() * 16) + 10,
-                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((rpPos.getX() * 16),(rpPos.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
+                        (rpPos.getX() << 4) + 10,
+                        (rpPos.getZ() << 4) + 10,
+                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((rpPos.getX() << 4),(rpPos.getZ() << 4)), DistanceMetric.EUCLIDEAN)),
 
-                        finalBastion.getX() * 16,
-                        finalBastion.getZ() * 16,
-                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((finalBastion.getX() * 16), (finalBastion.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
+                        finalBastion.getX() << 4,
+                        finalBastion.getZ() << 4,
+                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((finalBastion.getX() << 4), (finalBastion.getZ() << 4)), DistanceMetric.EUCLIDEAN)),
 
-                        finalFort.getX() * 16,
-                        finalFort.getZ() * 16,
-                        Math.toIntExact((long) (new CPos((finalBastion.getX() * 16), (finalBastion.getZ() * 16))).distanceTo(new CPos((finalFort.getX() * 16), (finalFort.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
+                        finalFort.getX() << 4,
+                        finalFort.getZ() << 4,
+                        Math.toIntExact((long) (new CPos((finalBastion.getX() << 4), (finalBastion.getZ() << 4))).distanceTo(new CPos((finalFort.getX() << 4), (finalFort.getZ() << 4)), DistanceMetric.EUCLIDEAN)),
 
                         endSpawnStatus,
                         backOrFront,
