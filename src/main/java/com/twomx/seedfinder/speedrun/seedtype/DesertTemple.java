@@ -74,6 +74,34 @@ public class DesertTemple {
         return (score >= reqScore);
     }
 
+    static long getDecoratorSeed(long worldSeed, int blockX, int blockZ, int salt) {
+        // matches cubiomes getDecoratorSeed
+        long r = worldSeed;
+        r ^= (long) blockX * 0x9e3779b97f4a7c15L;
+        r ^= (long) blockZ * 0x6c62272e07bb0142L;
+        r ^= (long) salt;
+        r ^= 0x9e3779b97f4a7c15L;
+        // mix
+        r = (r ^ (r >>> 30)) * 0xbf58476d1ce4e5b9L;
+        r = (r ^ (r >>> 27)) * 0x94d049bb133111ebL;
+        return r ^ (r >>> 31);
+    }
+
+    static int[] getLavaLake(long worldSeed, int blockX, int blockZ, int salt) {
+        // returns null if no lake, or [x, y, z] if lake found
+        long seed = getDecoratorSeed(worldSeed, blockX, blockZ, salt);
+        // use Java Random
+        java.util.Random r = new java.util.Random(seed);
+        if (r.nextInt(8) != 0) return null;
+        int lx = r.nextInt(16);
+        int lz = r.nextInt(16);
+        int y = r.nextInt(r.nextInt(248) + 8);
+        if (y < 63 || r.nextInt(10) == 0) {
+            return new int[]{lx + blockX, y, lz + blockZ};
+        }
+        return null;
+    }
+
     static void searchRange(long start, long end, AtomicLong progress, long totalSeeds) {
         MCVersion version = MCVersion.v1_16_1;
         Dimension ow = Dimension.OVERWORLD;
@@ -84,9 +112,11 @@ public class DesertTemple {
         DesertPyramid pyramid = new DesertPyramid(version);
         DesertPyramidGenerator dpg = new DesertPyramidGenerator(version);
 
+        /*
         // RP
         com.seedfinding.mcfeature.structure.RuinedPortal rp = new com.seedfinding.mcfeature.structure.RuinedPortal(ow, version);
         RuinedPortalGenerator rpg = new RuinedPortalGenerator(version);
+         */
 
         BastionRemnant bastion = new BastionRemnant(version);
         Fortress fortress = new Fortress(version);
@@ -108,6 +138,7 @@ public class DesertTemple {
             var terrainGen = TerrainGenerator.of(BiomeSource.of(ow, version, structureSeed));
             dpg.generate(terrainGen, pyramidPos); // make dpg usable
 
+            /*
             // RP
             CPos rpPos = rp.getInRegion(structureSeed, 0, 0, rand);
             if (rpPos == null) continue;
@@ -115,12 +146,13 @@ public class DesertTemple {
             rpg.generate(terrainGen, rpPos); // make rpg usable
             RuinedPortalGenerator.Location location = rpg.getLocation();
             if (!portalIsOnSurface(location)) continue; // check portal on surface
+             */
 
 
             // LOOT CHECK V
             var chestLoot = pyramid.getLoot(structureSeed, dpg, rand, false);
 
-            int reqScore = 30; // set to wanted score of items: notch = 20, apple = 8, flesh = 1 /FIXME @@@@@@@@@@@@@@@@@@@
+            int reqScore = -1; // set to wanted score of items: notch = 20, apple = 8, flesh = 1 /FIXME @@@@@@@@@@@@@@@@@@@
             int notchCount = 0, appleCount = 0, fleshCount = 0, ironCount = 0, diamondCount = 0;
 
             // chest check
@@ -141,7 +173,7 @@ public class DesertTemple {
             // =========================
             // BASTION + FORTRESS
             // =========================
-            FastionPair fastionPair = StructureFinder.findBastionFortress(structureSeed, bastion, fortress, zeroZero, 8 /* max bast dist */, 12 /* max fort dist */, rand);
+            FastionPair fastionPair = StructureFinder.findBastionFortress(structureSeed, bastion, fortress, zeroZero, 12 /* max bast dist */, 16 /* max fort dist */, rand);
             if (fastionPair == null) continue;
 
             final CPos finalBastion = fastionPair.bastion;
@@ -167,7 +199,7 @@ public class DesertTemple {
             WorldSeed.getSisterSeeds(structureSeed).asStream().boxed().limit(1000).forEach(worldSeed -> {
                 BiomeSource overworldSource = BiomeSource.of(ow, version, worldSeed);
                 if (!pyramid.canSpawn(pyramidPos, overworldSource)) return;
-                if (!rp.canSpawn(rpPos, overworldSource)) return;
+                //if (!rp.canSpawn(rpPos, overworldSource)) return;
 
                 // check for forest biome within 3 chunks (for trees)
                 OverworldBiomeSource owSource = (OverworldBiomeSource) overworldSource;
@@ -188,19 +220,40 @@ public class DesertTemple {
                 // pyramid and RP distance from SPAWN
                 CPos spawnPos = SpawnPoint.getApproximateSpawn((OverworldBiomeSource) overworldSource).toChunkPos();
                 if (spawnPos.distanceTo(pyramidPos, DistanceMetric.CHEBYSHEV) > 3) return;
-                if (pyramidPos.distanceTo(rpPos, DistanceMetric.CHEBYSHEV) > 5) return;
+                //if (pyramidPos.distanceTo(rpPos, DistanceMetric.CHEBYSHEV) > 5) return;
 
                 // REAL TERRAIN GENERATION
                 TerrainGenerator terrainGenerator = TerrainGenerator.of(overworldSource);
                 DesertPyramidGenerator desertPyramidGenerator = new DesertPyramidGenerator(version);
                 if (!desertPyramidGenerator.generate(terrainGenerator, pyramidPos)) return;
+                /*
                 RuinedPortalGenerator ruinedPortalGeneratorSeed = new RuinedPortalGenerator(version);
                 if (!ruinedPortalGeneratorSeed.generate(terrainGenerator, rpPos)) return;
 
                 String type = ruinedPortalGeneratorSeed.getType();
                 if (!rpHasEnoughLava(type)) return; // check portal has lava
+                 */
 
                 if (chestLoot.isEmpty()) return;
+
+                // scan chunks near pyramid for surface lava lake
+                CPos lavaLakeCords = new CPos(-999,-999);
+                final int DESERT_LAVA_LAKE_SALT_1_16 = 10000;
+                boolean hasLava = false;
+                int lavaDist = 5;
+                for (int cx = pyramidPos.getX() - lavaDist; cx <= pyramidPos.getX() + lavaDist; cx++) {
+                    for (int cz = pyramidPos.getZ() - lavaDist; cz <= pyramidPos.getZ() + lavaDist; cz++) {
+                        int[] lake = getLavaLake(worldSeed, cx * 16, cz * 16, DESERT_LAVA_LAKE_SALT_1_16);
+                        if (lake != null && lake[1] >= 60) { // surface-ish
+                            hasLava = true;
+                            lavaLakeCords = new CPos(lake[0], lake[1]);
+                            break;
+                        }
+                    }
+                    if (hasLava) break;
+                }
+
+                if (!hasLava) return;
 
                 // LAVA CHECK (last — most expensive)
                 /*
@@ -247,9 +300,12 @@ public class DesertTemple {
                 System.out.printf(
                         "%d (%d)%n" +
                                 "Desert Temple: [%4d, %4d] (%d)%n" +
+                                /*
                                 "RP:            [%4d, %4d] (%d)%n" +
+                                 */
                                 "Bastion:       [%4d, %4d] (%d)%n" +
                                 "Fort:          [%4d, %4d] (%d)%n" +
+                                "Lava Lake:     [%4d, %4d]%n" +
                                 "%s, %s %d%n%n",
 
                         worldSeed,
@@ -259,9 +315,11 @@ public class DesertTemple {
                         (pyramidPos.getZ() * 16) + 10,
                         Math.toIntExact((long) spawnPos.distanceTo(new CPos((pyramidPos.getX() * 16) + 10,(pyramidPos.getZ() * 16) + 10), DistanceMetric.EUCLIDEAN)),
 
+                        /*
                         (rpPos.getX() * 16) + 10,
                         (rpPos.getZ() * 16) + 10,
                         Math.toIntExact((long) spawnPos.distanceTo(new CPos((rpPos.getX() * 16),(rpPos.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
+                         */
 
                         finalBastion.getX() * 16,
                         finalBastion.getZ() * 16,
@@ -270,6 +328,9 @@ public class DesertTemple {
                         finalFort.getX() * 16,
                         finalFort.getZ() * 16,
                         Math.toIntExact((long) (new CPos((finalBastion.getX() * 16), (finalBastion.getZ() * 16))).distanceTo(new CPos((finalFort.getX() * 16), (finalFort.getZ() * 16)), DistanceMetric.EUCLIDEAN)),
+
+                        lavaLakeCords.getX(),
+                        lavaLakeCords.getZ(),
 
                         endSpawnStatus,
                         backOrFront,

@@ -216,7 +216,7 @@ public class BuriedTreasureSeedFinder {
 
                 System.out.printf(
                         "%d (%d)%n" +
-                                "/tp %d ~5 %d%n" +
+                                "/tp %d ~ %d%n" +
                                 "BuriedTreasure: [%4d, %4d] (dist from spawn: %d)%n" +
                                 "Bastion:        [%4d, %4d]%n" +
                                 "Fort:           [%4d, %4d]%n" +
