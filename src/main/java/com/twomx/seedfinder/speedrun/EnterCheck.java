@@ -77,8 +77,8 @@ public class EnterCheck {
         // Z: blockZ -> blockZ + boxSize
 
         int boxSize = 8;
-        for (int x = blockX; x <= blockX + boxSize; x += 2) {
-            for (int z = blockZ; z <= blockZ + boxSize; z += 2) {
+        for (int x = blockX; x <= blockX + boxSize; x += 4) {
+            for (int z = blockZ; z <= blockZ + boxSize; z += 4) {
                 for (int y = 61; y <= 72; y++) {
 
                     Optional<Block> block = generator.getBlockAt(x, y, z);

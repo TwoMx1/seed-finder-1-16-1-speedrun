@@ -204,7 +204,7 @@ public class DesertTemple {
             // =========================
             // BASTION + FORTRESS
             // =========================
-            FastionPair fastionPair = StructureFinder.findBastionFortress(structureSeed, bastion, fortress, zeroZero, 12 /* max bast dist */, 16 /* max fort dist */, rand);
+            FastionPair fastionPair = StructureFinder.findBastionFortress(structureSeed, bastion, fortress, zeroZero, 18  /* max bast dist */, 16 /* max fort dist */, rand);
             if (fastionPair == null) continue;
 
             final CPos finalBastion = fastionPair.bastion;
@@ -268,30 +268,36 @@ public class DesertTemple {
                 if (chestLoot.isEmpty()) return;
 
                 // scan chunks near pyramid for surface LAVA LAKE
-                List<CPos> lavaLakeList = new ArrayList<>();
+
+                boolean checkLavaPool = false;
+
                 CPos lavaLakeCords = new CPos(-999, -999);
-                final int DESERT_LAVA_LAKE_SALT_1_16 = 10000; //10000 = desert, desert hills, desert lakes biomes, 10001 = all other
-                boolean hasLava = false;
-                int lavaDist = 5;
-                for (int cx = pyramidPos.getX() - lavaDist; cx <= pyramidPos.getX() + lavaDist; cx++) {
-                    for (int cz = pyramidPos.getZ() - lavaDist; cz <= pyramidPos.getZ() + lavaDist; cz++) {
-                        // checking only for desert
-                        if (owSource.getBiome(cx << 4, 0, cz << 4) != Biomes.DESERT) continue;
+                List<CPos> lavaLakeList = new ArrayList<>();
+                if (checkLavaPool) {
+                    final int DESERT_LAVA_LAKE_SALT_1_16 = 10000; //10000 = desert, desert hills, desert lakes biomes, 10001 = all other
+                    boolean hasLava = false;
+                    int lavaDist = 5;
+                    for (int cx = pyramidPos.getX() - lavaDist; cx <= pyramidPos.getX() + lavaDist; cx++) {
+                        for (int cz = pyramidPos.getZ() - lavaDist; cz <= pyramidPos.getZ() + lavaDist; cz++) {
+                            // checking only for desert
+                            if (owSource.getBiome(cx << 4, 0, cz << 4) != Biomes.DESERT) continue;
 
-                        int[] lake = getLavaLake(worldSeed, cx << 4, cz << 4, DESERT_LAVA_LAKE_SALT_1_16);
-                        if (lake != null && lake[1] >= 60) {// surface-ish
-                            if (!validateLavaLake(terrainGenerator, cx << 4, cz << 4)) continue; // actually checks if it has lava
+                            int[] lake = getLavaLake(worldSeed, cx << 4, cz << 4, DESERT_LAVA_LAKE_SALT_1_16);
+                            if (lake != null && lake[1] >= 60) {// surface-ish
+                                if (!validateLavaLake(terrainGenerator, cx << 4, cz << 4))
+                                    continue; // actually checks if it has lava
 
-                            hasLava = true;
-                            lavaLakeCords = new CPos(lake[0], lake[2]);
-                            lavaLakeList.add(lavaLakeCords);
-                            //break;
+                                hasLava = true;
+                                lavaLakeCords = new CPos(lake[0], lake[2]);
+                                lavaLakeList.add(lavaLakeCords);
+                                //break;
+                            }
                         }
+                        if (hasLava) break;
                     }
-                    if (hasLava) break;
-                }
 
-                if (!hasLava) return;
+                    if (!hasLava) return;
+                }
 
                 // END spawn
                 BiomeSource endSource = BiomeSource.of(Dimension.END, version, worldSeed);

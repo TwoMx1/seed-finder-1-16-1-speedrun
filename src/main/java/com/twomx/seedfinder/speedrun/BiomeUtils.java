@@ -23,7 +23,7 @@ public class BiomeUtils {
         return false;
     }
 
-    private static boolean isTreeBiome(Biome b) {
+    public static boolean isTreeBiome(Biome b) {
         return b == Biomes.FOREST
                 || b == Biomes.BIRCH_FOREST
                 || b == Biomes.FLOWER_FOREST

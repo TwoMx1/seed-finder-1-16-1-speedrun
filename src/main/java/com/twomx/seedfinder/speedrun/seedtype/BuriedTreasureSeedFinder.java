@@ -23,6 +23,7 @@ import com.seedfinding.mcfeature.structure.RegionStructure;
 import com.seedfinding.mcterrain.TerrainGenerator;
 import com.twomx.seedfinder.speedrun.BiomeUtils;
 import com.twomx.seedfinder.speedrun.FastionPair;
+import com.twomx.seedfinder.speedrun.StrongHoldCheck;
 import com.twomx.seedfinder.speedrun.StructureFinder;
 
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.seedfinding.mccore.rand.seed.PillarSeed.getPillarHeights;
+import static com.twomx.seedfinder.speedrun.BiomeUtils.isTreeBiome;
 import static com.twomx.seedfinder.speedrun.EnterCheck.getLavaLake;
 
 public class BuriedTreasureSeedFinder {
@@ -144,8 +146,7 @@ public class BuriedTreasureSeedFinder {
             if (pillarHeights[0] < pillarHeights[5]) {
                 backOrFront = "Back";
                 zeroHeight = pillarHeights[4];
-            }
-            else {
+            } else {
                 zeroHeight = pillarHeights[9];
                 backOrFront = "Front";
             }
@@ -155,15 +156,16 @@ public class BuriedTreasureSeedFinder {
             // =========================
             WorldSeed.getSisterSeeds(structureSeed).asStream().boxed().limit(1000).forEach(worldSeed -> {
 
-                // BIOME CHECK — must be beach/snowy beach for buried treasure
+                // BIOME CHECK — must be beach for buried treasure
                 BiomeSource overworldSource = BiomeSource.of(ow, version, worldSeed);
                 if (!bt.canSpawn(finalBtPos, overworldSource)) return;
 
                 // check for forest biome within 3 chunks (for trees)
                 OverworldBiomeSource owSource = (OverworldBiomeSource) overworldSource;
                 if (!BiomeUtils.hasTreeBiomeNear(owSource, finalBtPos, 3 /* MAX DISTANCE */)) return;
-                if (!BiomeUtils.hasAnyBiomeNear(owSource, finalBtPos, 5 /* MAX DISTANCE */, Set.of(Biomes.DEEP_OCEAN))) return;
-                if (!BiomeUtils.hasAnyBiomeNear(owSource, finalBtPos, 5 /* MAX DISTANCE */, Set.of(Biomes.PLAINS))) return;
+                if (!BiomeUtils.hasAnyBiomeNear(owSource, finalBtPos, 5 /* MAX DISTANCE */, Set.of(Biomes.DEEP_OCEAN)))
+                    return;
+                //if (!BiomeUtils.hasAnyBiomeNear(owSource, finalBtPos, 5 /* MAX */, Set.of(Biomes.PLAINS))) return;
 
                 // NETHER
                 BiomeSource netherSource = BiomeSource.of(nether, version, worldSeed);
@@ -199,29 +201,62 @@ public class BuriedTreasureSeedFinder {
                 }
 
                 // LOOT FILTER — adjust as needed
-                //if (!enoughLoot(ironCount, diamondCount, goldCount, tntCount, fishCounter, true)) return; // <========
+                if (!enoughLoot(ironCount, diamondCount, goldCount, tntCount, fishCounter, true)) return; // <========
 
                 // scan chunks near pyramid for surface LAVA LAKE
+                boolean checkLavaPool = false;
                 CPos lavaLakeCords = new CPos(-999, -999);
-                final int DESERT_LAVA_LAKE_SALT_1_16 = 10001; //10000 = desert, desert hills, desert lakes biomes, 10001 = all other
-                boolean hasLava = false;
-                int lavaDist = 5;
-                for (int cx = spawnPos.getX() - lavaDist; cx <= spawnPos.getX() + lavaDist; cx++) {
-                    for (int cz = spawnPos.getZ() - lavaDist; cz <= spawnPos.getZ() + lavaDist; cz++) {
-                        // checking only for desert
-                        if (owSource.getBiome(cx << 4, 0, cz << 4) != Biomes.PLAINS) continue;
+                if (checkLavaPool) {
+                    final int DESERT_LAVA_LAKE_SALT_1_16 = 10001; //10000 = desert, desert hills, desert lakes biomes, 10001 = all other
+                    boolean hasLava = false;
+                    int lavaDist = 5;
+                    for (int cx = spawnPos.getX() - lavaDist; cx <= spawnPos.getX() + lavaDist; cx++) {
+                        for (int cz = spawnPos.getZ() - lavaDist; cz <= spawnPos.getZ() + lavaDist; cz++) {
+                            // checking only for desert
+                            if (owSource.getBiome(cx << 4, 0, cz << 4) != Biomes.PLAINS) continue;
 
-                        int[] lake = getLavaLake(worldSeed, cx << 4, cz << 4, DESERT_LAVA_LAKE_SALT_1_16);
-                        if (lake != null && lake[1] >= 60) { // surface-ish
-                            hasLava = true;
-                            lavaLakeCords = new CPos(lake[0], lake[2]);
-                            break;
+                            int[] lake = getLavaLake(worldSeed, cx << 4, cz << 4, DESERT_LAVA_LAKE_SALT_1_16);
+                            if (lake != null && lake[1] >= 60) { // surface-ish
+                                hasLava = true;
+                                lavaLakeCords = new CPos(lake[0], lake[2]);
+                                break;
+                            }
                         }
+                        if (hasLava) break;
                     }
-                    if (hasLava) break;
+
+                    if (!hasLava) return;
                 }
 
-                if (!hasLava) return;
+                // scan chunks for tree
+                boolean checkTree = true;
+                CPos treeCords = new CPos(-999, -999);
+                if (checkTree) {
+                    final int TREE_SALT_1_16 = 80000; //80001 for some idk
+                    boolean hasTree = false;
+                    int treeDist = 5;
+                    for (int cx = spawnPos.getX() - treeDist; cx <= spawnPos.getX() + treeDist; cx++) {
+                        for (int cz = spawnPos.getZ() - treeDist; cz <= spawnPos.getZ() + treeDist; cz++) {
+                            // checking only for tree biomes
+                            if (!isTreeBiome(owSource.getBiome(cx << 4, 0, cz << 4))) continue;
+
+                            int[] tree = getLavaLake(worldSeed, cx << 4, cz << 4, TREE_SALT_1_16);
+                            if (tree != null && tree[1] >= 60) { // surface-ish
+                                hasTree = true;
+                                treeCords = new CPos(tree[0], tree[2]);
+                                break;
+                            }
+                        }
+                        if (hasTree) break;
+                    }
+
+                    if (!hasTree) return;
+                }
+
+                // SH INFO
+                StrongHoldCheck checker = new StrongHoldCheck(MCVersion.v1_16_1);
+                List<StrongHoldCheck.StrongholdInfo> strongholds = checker.getFirstRingStrongholds(worldSeed);
+                strongholds.forEach(System.out::println);
 
                 // END spawn
                 BiomeSource endSource = BiomeSource.of(Dimension.END, version, worldSeed);
@@ -246,6 +281,7 @@ public class BuriedTreasureSeedFinder {
                                 "Fort:           [%4d, %4d]%n" +
                                 "Loot: iron=%d diamond=%d gold=%d tnt=%d fish=%d%n" +
                                 "Lava Lake:     [%4d, %4d]%n" +
+                                "Tree:          [%4d, %4d]%n" +
                                 "%s, %s %d%n%n",
 
                         // seeds
@@ -253,9 +289,8 @@ public class BuriedTreasureSeedFinder {
                         finalStructureSeed,
 
                         // bt cords + tp command
-                        finalBtPos.getX() << 4 + 9, finalBtPos.getZ() << 4 + 9,
-
-                        finalBtPos.getX() << 4 + 9, finalBtPos.getZ() << 4 + 9,
+                        (finalBtPos.getX() * 16) + 9, (finalBtPos.getZ() * 16) + 9,
+                        (finalBtPos.getX() * 16) + 9, (finalBtPos.getZ() * 16) + 9,
                         Math.toIntExact((long) spawnPos.distanceTo(finalBtPos, DistanceMetric.CHEBYSHEV)),
 
                         // bastion and fort
@@ -267,6 +302,10 @@ public class BuriedTreasureSeedFinder {
                         // lava lake
                         lavaLakeCords.getX(),
                         lavaLakeCords.getZ(),
+
+                        // tree
+                        treeCords.getX(),
+                        treeCords.getZ(),
 
                         // end info
                         endSpawnStatus,
