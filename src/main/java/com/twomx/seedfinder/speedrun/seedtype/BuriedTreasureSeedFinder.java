@@ -163,6 +163,7 @@ public class BuriedTreasureSeedFinder {
                 OverworldBiomeSource owSource = (OverworldBiomeSource) overworldSource;
                 if (!BiomeUtils.hasTreeBiomeNear(owSource, finalBtPos, 4 /* MAX DISTANCE */)) return;
                 if (!BiomeUtils.hasAnyBiomeNear(owSource, finalBtPos, 5 /* MAX DISTANCE */, Set.of(Biomes.DEEP_OCEAN))) return;
+                if (!BiomeUtils.hasAnyBiomeNear(owSource, finalBtPos, 5 /* MAX DISTANCE */, Set.of(Biomes.PLAINS))) return;
 
                 // NETHER
                 BiomeSource netherSource = BiomeSource.of(nether, version, worldSeed);
@@ -198,7 +199,7 @@ public class BuriedTreasureSeedFinder {
                 }
 
                 // LOOT FILTER — adjust as needed
-                if (!enoughLoot(ironCount, diamondCount, goldCount, tntCount, fishCounter, true)) return;
+                //if (!enoughLoot(ironCount, diamondCount, goldCount, tntCount, fishCounter, true)) return; // <========
 
                 // scan chunks near pyramid for surface LAVA LAKE
                 CPos lavaLakeCords = new CPos(-999, -999);
@@ -207,10 +208,13 @@ public class BuriedTreasureSeedFinder {
                 int lavaDist = 5;
                 for (int cx = spawnPos.getX() - lavaDist; cx <= spawnPos.getX() + lavaDist; cx++) {
                     for (int cz = spawnPos.getZ() - lavaDist; cz <= spawnPos.getZ() + lavaDist; cz++) {
-                        int[] lake = getLavaLake(worldSeed, cx * 16, cz * 16, DESERT_LAVA_LAKE_SALT_1_16);
+                        // checking only for desert
+                        if (owSource.getBiome(cx << 4, 0, cz << 4) != Biomes.PLAINS) continue;
+
+                        int[] lake = getLavaLake(worldSeed, cx << 4, cz << 4, DESERT_LAVA_LAKE_SALT_1_16);
                         if (lake != null && lake[1] >= 60) { // surface-ish
                             hasLava = true;
-                            lavaLakeCords = new CPos(lake[0], lake[1]);
+                            lavaLakeCords = new CPos(lake[0], lake[2]);
                             break;
                         }
                     }

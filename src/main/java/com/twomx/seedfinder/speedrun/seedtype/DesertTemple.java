@@ -272,15 +272,13 @@ public class DesertTemple {
                 int lavaDist = 5;
                 for (int cx = pyramidPos.getX() - lavaDist; cx <= pyramidPos.getX() + lavaDist; cx++) {
                     for (int cz = pyramidPos.getZ() - lavaDist; cz <= pyramidPos.getZ() + lavaDist; cz++) {
-
-                        // trying sum
+                        // checking only for desert
                         if (owSource.getBiome(cx << 4, 0, cz << 4) != Biomes.DESERT) continue;
-
 
                         int[] lake = getLavaLake(worldSeed, cx << 4, cz << 4, DESERT_LAVA_LAKE_SALT_1_16);
                         if (lake != null && lake[1] >= 60) { // surface-ish
                             hasLava = true;
-                            lavaLakeCords = new CPos(lake[0], lake[1]);
+                            lavaLakeCords = new CPos(lake[0], lake[2]);
                             break;
                         }
                     }
