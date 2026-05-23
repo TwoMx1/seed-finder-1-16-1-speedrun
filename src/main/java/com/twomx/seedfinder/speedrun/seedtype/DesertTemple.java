@@ -30,6 +30,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.Set;
 
+import static com.seedfinding.mccore.rand.seed.ChunkSeeds.getDecoratorSeed;
+import static com.seedfinding.mccore.rand.seed.ChunkSeeds.getPopulationSeed;
 import static com.seedfinding.mccore.rand.seed.PillarSeed.getPillarHeights;
 import static com.twomx.seedfinder.speedrun.EnterCheck.portalIsOnSurface;
 import static com.twomx.seedfinder.speedrun.EnterCheck.rpHasEnoughLava;
@@ -40,6 +42,13 @@ public class DesertTemple {
     static CPos zeroZero = new CPos(0, 0);
 
     public static void main(String[] args) throws InterruptedException {
+        // 33333742
+        long singleStructureSeedToTest = -1; // -1 for no test
+        if (singleStructureSeedToTest != -1) {
+            testSeed(singleStructureSeedToTest);
+            return;
+        }
+
         System.out.println("THREAD_COUNT: " + THREADS);
         AtomicLong progress = new AtomicLong(0);
         ExecutorService executor = Executors.newFixedThreadPool(THREADS);
@@ -74,7 +83,8 @@ public class DesertTemple {
         return (score >= reqScore);
     }
 
-    static long getDecoratorSeed(long worldSeed, int blockX, int blockZ, int salt) {
+    /*
+    static long getDecoratorSeedOld(long worldSeed, int blockX, int blockZ, int salt) {
         // matches cubiomes getDecoratorSeed
         long r = worldSeed;
         r ^= (long) blockX * 0x9e3779b97f4a7c15L;
@@ -87,11 +97,24 @@ public class DesertTemple {
         return r ^ (r >>> 31);
     }
 
+    static long getDecoratorSeed(long worldSeed, int blockX, int blockZ, int salt) {
+        long populationSeed = getPopulationSeed(worldSeed, blockX >> 4, blockZ >> 4, MCVersion.v1_16_1);
+        return (populationSeed + salt) & 0xFFFFFFFFFFFFL;
+    }
+    */
+
+    // returns null if no lake, or [x, y, z] if lake found
     static int[] getLavaLake(long worldSeed, int blockX, int blockZ, int salt) {
-        // returns null if no lake, or [x, y, z] if lake found
-        long seed = getDecoratorSeed(worldSeed, blockX, blockZ, salt);
-        // use Java Random
-        java.util.Random r = new java.util.Random(seed);
+        int step = salt / 10000;
+        int index = salt % 10000;
+        long seed = getDecoratorSeed(worldSeed, blockX, blockZ, index, step, MCVersion.v1_16_1);
+
+        // use Java Random, but i think thats where i break it... v
+        // both way are off when testing somehow
+        //java.util.Random r = new java.util.Random(seed);
+        ChunkRand r = new ChunkRand();
+        r.setSeed(seed);
+        // ^^^
         if (r.nextInt(8) != 0) return null;
         int lx = r.nextInt(16);
         int lz = r.nextInt(16);
@@ -100,6 +123,10 @@ public class DesertTemple {
             return new int[]{lx + blockX, y, lz + blockZ};
         }
         return null;
+    }
+
+    static void testSeed(long structureSeed) {
+        searchRange(structureSeed, structureSeed + 1, new AtomicLong(0), 1);
     }
 
     static void searchRange(long start, long end, AtomicLong progress, long totalSeeds) {
@@ -237,8 +264,8 @@ public class DesertTemple {
                 if (chestLoot.isEmpty()) return;
 
                 // scan chunks near pyramid for surface lava lake
-                CPos lavaLakeCords = new CPos(-999,-999);
-                final int DESERT_LAVA_LAKE_SALT_1_16 = 10000;
+                CPos lavaLakeCords = new CPos(-999, -999);
+                final int DESERT_LAVA_LAKE_SALT_1_16 = 10000; //10001 for other
                 boolean hasLava = false;
                 int lavaDist = 5;
                 for (int cx = pyramidPos.getX() - lavaDist; cx <= pyramidPos.getX() + lavaDist; cx++) {
@@ -313,7 +340,7 @@ public class DesertTemple {
 
                         (pyramidPos.getX() * 16) + 10,
                         (pyramidPos.getZ() * 16) + 10,
-                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((pyramidPos.getX() * 16) + 10,(pyramidPos.getZ() * 16) + 10), DistanceMetric.EUCLIDEAN)),
+                        Math.toIntExact((long) spawnPos.distanceTo(new CPos((pyramidPos.getX() * 16) + 10, (pyramidPos.getZ() * 16) + 10), DistanceMetric.EUCLIDEAN)),
 
                         /*
                         (rpPos.getX() * 16) + 10,
