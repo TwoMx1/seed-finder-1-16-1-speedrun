@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.seedfinding.mccore.rand.seed.PillarSeed.getPillarHeights;
+import static com.twomx.seedfinder.speedrun.EnterCheck.getLavaLake;
 
 public class BuriedTreasureSeedFinder {
 
@@ -199,6 +200,25 @@ public class BuriedTreasureSeedFinder {
                 // LOOT FILTER — adjust as needed
                 if (!enoughLoot(ironCount, diamondCount, goldCount, tntCount, fishCounter, true)) return;
 
+                // scan chunks near pyramid for surface LAVA LAKE
+                CPos lavaLakeCords = new CPos(-999, -999);
+                final int DESERT_LAVA_LAKE_SALT_1_16 = 10001; //10000 = desert, desert hills, desert lakes biomes, 10001 = all other
+                boolean hasLava = false;
+                int lavaDist = 5;
+                for (int cx = spawnPos.getX() - lavaDist; cx <= spawnPos.getX() + lavaDist; cx++) {
+                    for (int cz = spawnPos.getZ() - lavaDist; cz <= spawnPos.getZ() + lavaDist; cz++) {
+                        int[] lake = getLavaLake(worldSeed, cx * 16, cz * 16, DESERT_LAVA_LAKE_SALT_1_16);
+                        if (lake != null && lake[1] >= 60) { // surface-ish
+                            hasLava = true;
+                            lavaLakeCords = new CPos(lake[0], lake[1]);
+                            break;
+                        }
+                    }
+                    if (hasLava) break;
+                }
+
+                if (!hasLava) return;
+
                 // END spawn
                 BiomeSource endSource = BiomeSource.of(Dimension.END, version, worldSeed);
                 TerrainGenerator endGen = TerrainGenerator.of(endSource);
@@ -221,20 +241,30 @@ public class BuriedTreasureSeedFinder {
                                 "Bastion:        [%4d, %4d]%n" +
                                 "Fort:           [%4d, %4d]%n" +
                                 "Loot: iron=%d diamond=%d gold=%d tnt=%d fish=%d%n" +
+                                "Lava Lake:     [%4d, %4d]%n" +
                                 "%s, %s %d%n%n",
 
+                        // seeds
                         worldSeed,
                         finalStructureSeed,
 
+                        // bt cords + tp command
                         finalBtPos.getX() * 16 + 9, finalBtPos.getZ() * 16 + 9,
 
                         finalBtPos.getX() * 16 + 9, finalBtPos.getZ() * 16 + 9,
                         Math.toIntExact((long) spawnPos.distanceTo(finalBtPos, DistanceMetric.CHEBYSHEV)),
 
+                        // bastion and fort
                         finalBastion.getX() * 16, finalBastion.getZ() * 16,
                         finalFort.getX() * 16, finalFort.getZ() * 16,
-                        ironCount, diamondCount, goldCount, tntCount, fishCounter,
 
+                        ironCount, diamondCount, goldCount, tntCount, fishCounter, // loot info
+
+                        // lava lake
+                        lavaLakeCords.getX(),
+                        lavaLakeCords.getZ(),
+
+                        // end info
                         endSpawnStatus,
                         backOrFront,
                         zeroHeight

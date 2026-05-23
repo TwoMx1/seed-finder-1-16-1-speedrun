@@ -33,8 +33,7 @@ import java.util.Set;
 import static com.seedfinding.mccore.rand.seed.ChunkSeeds.getDecoratorSeed;
 import static com.seedfinding.mccore.rand.seed.ChunkSeeds.getPopulationSeed;
 import static com.seedfinding.mccore.rand.seed.PillarSeed.getPillarHeights;
-import static com.twomx.seedfinder.speedrun.EnterCheck.portalIsOnSurface;
-import static com.twomx.seedfinder.speedrun.EnterCheck.rpHasEnoughLava;
+import static com.twomx.seedfinder.speedrun.EnterCheck.*;
 
 public class DesertTemple {
     static final long TOTAL_SEEDS = 100_000_000L;
@@ -103,6 +102,7 @@ public class DesertTemple {
     }
     */
 
+    /*
     // returns null if no lake, or [x, y, z] if lake found
     static int[] getLavaLake(long worldSeed, int blockX, int blockZ, int salt) {
         int step = salt / 10000;
@@ -124,6 +124,8 @@ public class DesertTemple {
         }
         return null;
     }
+
+     */
 
     static void testSeed(long structureSeed) {
         searchRange(structureSeed, structureSeed + 1, new AtomicLong(0), 1);
@@ -263,14 +265,19 @@ public class DesertTemple {
 
                 if (chestLoot.isEmpty()) return;
 
-                // scan chunks near pyramid for surface lava lake
+                // scan chunks near pyramid for surface LAVA LAKE
                 CPos lavaLakeCords = new CPos(-999, -999);
-                final int DESERT_LAVA_LAKE_SALT_1_16 = 10000; //10001 for other
+                final int DESERT_LAVA_LAKE_SALT_1_16 = 10000; //10000 = desert, desert hills, desert lakes biomes, 10001 = all other
                 boolean hasLava = false;
                 int lavaDist = 5;
                 for (int cx = pyramidPos.getX() - lavaDist; cx <= pyramidPos.getX() + lavaDist; cx++) {
                     for (int cz = pyramidPos.getZ() - lavaDist; cz <= pyramidPos.getZ() + lavaDist; cz++) {
-                        int[] lake = getLavaLake(worldSeed, cx * 16, cz * 16, DESERT_LAVA_LAKE_SALT_1_16);
+
+                        // trying sum
+                        if (owSource.getBiome(cx << 4, 0, cz << 4) != Biomes.DESERT) continue;
+
+
+                        int[] lake = getLavaLake(worldSeed, cx << 4, cz << 4, DESERT_LAVA_LAKE_SALT_1_16);
                         if (lake != null && lake[1] >= 60) { // surface-ish
                             hasLava = true;
                             lavaLakeCords = new CPos(lake[0], lake[1]);
@@ -281,29 +288,6 @@ public class DesertTemple {
                 }
 
                 if (!hasLava) return;
-
-                // LAVA CHECK (last — most expensive)
-                /*
-                boolean hasLava = false;
-                int pyramidBlockX = pyramidPos.getX() << 4;
-                int pyramidBlockZ = pyramidPos.getZ() << 4;
-                lavaSearch:
-                for (int dx = -80; dx <= 80; dx += 2) {
-                    for (int dz = -80; dz <= 80; dz += 2) {
-                        int bx = pyramidBlockX + dx;
-                        int bz = pyramidBlockZ + dz;
-                        int surfaceY = terrainGenerator.getFirstHeightInColumn(bx, bz, TerrainGenerator.WORLD_SURFACE_WG);
-                        for (int dy = -3; dy <= 1; dy++) {
-                            var block = terrainGenerator.getBlockAt(bx, surfaceY + dy, bz);
-                            if (block.isPresent() && block.get().getId() == Blocks.LAVA.getId()) {
-                                hasLava = true;
-                                break lavaSearch;
-                            }
-                        }
-                    }
-                }
-                if (!hasLava) return;
-                 */
 
                 // END spawn
                 BiomeSource endSource = BiomeSource.of(Dimension.END, version, worldSeed);
